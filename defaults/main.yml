@@ -1,0 +1,11 @@
+---
+# defaults file for ansible-role-teamcity/
+
+teamcity_version: "9.1.7"
+download_directory: "/tmp/"
+teamcity_install_folder: "/opt/TeamCity"
+teamcity_data_path: "{{teamcity_install_folder}}/data"
+teamcity_user: "teamcity"
+teamcity_group: "teamcity"
+teamcity_http_port: "80"
+

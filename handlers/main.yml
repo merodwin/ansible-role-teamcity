@@ -1,0 +1,17 @@
+---
+
+- name: StartTeamCity
+  become: yes
+  service: name=teamcity state=started
+  tags:
+    - init
+
+- name: StopTeamCity
+  become: yes
+  service: name=teamcity state=started
+  
+- name: RestartTeamCity
+  become: yes
+  service: name=teamcity state=restarted
+   
+# handlers file for ansible-role-teamcity/

@@ -1,0 +1,63 @@
+---
+
+- name: create teamcity group
+  become: yes
+  group: name={{teamcity_group}} state=present
+
+- name: create teamcity user
+  become: yes
+  user: name="{{teamcity_user}}" group={{teamcity_group}} state=present
+
+- name: download teamcity
+  get_url: url="https://download-cf.jetbrains.com/teamcity/TeamCity-{{teamcity_version}}.tar.gz" dest="{{download_directory}}/TeamCity{{teamcity_version}}.tar.gz" validate_certs=False
+
+- name: create dir
+  become: true
+  file: path="{{teamcity_install_folder}}" state=directory owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="777"
+
+- name: check if allredy installed
+  stat: path="{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}"
+  register: installDir
+
+- name: untar teamcity
+  become: yes
+  unarchive: src="{{download_directory}}/TeamCity{{teamcity_version}}.tar.gz" dest="{{teamcity_install_folder}}" copy=no
+  when: installDir.stat.exists == False
+
+- name: debug output
+  debug: var=installDir  
+  
+
+- name: rename folder
+  become: true
+  shell:  mv  "{{teamcity_install_folder}}/TeamCity" "{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}"
+  when: installDir.stat.exists == False
+
+- name: config port
+  become: true
+  template: src="server.xml.j2" dest="{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}/conf/server.xml" owner="{{teamcity_user}}" group="{{teamcity_group}}" mode=0755 backup=yes
+  notify:
+   - RestartTeamCity
+
+- name: create data dir
+  become: true
+  file: path="{{teamcity_install_folder}}/data/lib/jdbc/" state=directory owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="777"
+
+- name: install postgresql driver
+  become: true
+  get_url: url=https://jdbc.postgresql.org/download/postgresql-9.4.1208.jar dest="{{teamcity_data_path}}/lib/jdbc/postgresql-9.4.1208.jar"
+
+- name: symlik to latest folder
+  become: true
+  file: dest="{{teamcity_install_folder}}/latest" src="{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}" state=link owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="777"
+
+- name: create init script
+  become: yes
+  template: src=init.j2 dest=/etc/init.d/teamcity owner=root mode=755
+
+- name: chown dir
+  become: true
+  file: path="{{teamcity_install_folder}}" state=directory owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="755" recurse=yes
+
+
+
