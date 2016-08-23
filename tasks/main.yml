@@ -27,37 +27,67 @@
 - name: debug output
   debug: var=installDir  
   
+- block:
+  - name: stop service
+    service: 
+      name: teamcity
+      state: stopped
+    ignore_errors: yes
 
-- name: rename folder
-  become: true
-  shell:  mv  "{{teamcity_install_folder}}/TeamCity" "{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}"
+  - name: check if previous version was installed
+    stat: path="{{teamcity_install_folder}}/latest"
+    register: latestDir
+
+  - name: rename folder
+    become: true
+    shell:  mv  "{{teamcity_install_folder}}/TeamCity" "{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}"
+
+  - name: config port
+    become: true
+    template: src="server.xml.j2" dest="{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}/conf/server.xml" owner="{{teamcity_user}}" group="{{teamcity_group}}" mode=0755 backup=yes
+    when: latestDir.stat.exists == False
+
+  - name: create jdbc dir
+    become: true
+    file: path="{{teamcity_install_folder}}/data/lib/jdbc/" state=directory owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="777"
+
+  - name: install postgresql driver
+    become: true
+    get_url: url=https://jdbc.postgresql.org/download/postgresql-9.4.1208.jar dest="{{teamcity_data_path}}/lib/jdbc/postgresql-9.4.1208.jar"
+
+
+  - name: move latest to last
+    shell: "mv {{teamcity_install_folder}}/latest {{teamcity_install_folder}}/last"
+    when: latestDir.stat.exists == True
+
+
+  - name: symlik to latest folder
+    become: true
+    file: dest="{{teamcity_install_folder}}/latest" src="{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}" state=link owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="755"
+  
+  - name: copy config dir to
+    shell: "cp -r {{teamcity_install_folder}}/last/ {{teamcity_install_folder}}/latest/"
+    when: latestDir.stat.exists == True
+
+  - name: create init script
+    become: yes
+    template: src=init.j2 dest=/etc/init.d/teamcity owner=root mode=755
+    when: initSystem == "init.d"
+  
+  - name: create service
+    become: yes
+    template: src=teamcity.service.j2 dest=/etc/systemd/system/teamcity.service owner=root mode=755
+    when: initSystem == "system.d"
+
+  - name: chown dir
+    become: true
+    file: path="{{teamcity_install_folder}}" state=directory owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="755" recurse=yes
+
   when: installDir.stat.exists == False
-
-- name: config port
-  become: true
-  template: src="server.xml.j2" dest="{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}/conf/server.xml" owner="{{teamcity_user}}" group="{{teamcity_group}}" mode=0755 backup=yes
-  notify:
-   - RestartTeamCity
-
-- name: create data dir
-  become: true
-  file: path="{{teamcity_install_folder}}/data/lib/jdbc/" state=directory owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="777"
-
-- name: install postgresql driver
-  become: true
-  get_url: url=https://jdbc.postgresql.org/download/postgresql-9.4.1208.jar dest="{{teamcity_data_path}}/lib/jdbc/postgresql-9.4.1208.jar"
-
-- name: symlik to latest folder
-  become: true
-  file: dest="{{teamcity_install_folder}}/latest" src="{{teamcity_install_folder}}/TeamCity-{{teamcity_version}}" state=link owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="777"
-
-- name: create init script
-  become: yes
-  template: src=init.j2 dest=/etc/init.d/teamcity owner=root mode=755
-
-- name: chown dir
-  become: true
-  file: path="{{teamcity_install_folder}}" state=directory owner="{{teamcity_user}}" group="{{teamcity_group}}" mode="755" recurse=yes
-
+  
+- name: start service
+  service: 
+    name: teamcity
+    state: started
 
 

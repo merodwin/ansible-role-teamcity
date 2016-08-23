@@ -1,0 +1,13 @@
+[Unit]
+Description=JetBrains TeamCity
+Requires=network.target
+After=syslog.target network.target
+
+[Service]
+Type=forking
+ExecStart={{teamcity_install_folder}}/latest/bin/runAll.sh start
+ExecStop={{teamcity_install_folder}}/latest/bin/runAll.sh stop
+User={{teamcity_user}}
+
+[Install]
+WantedBy=multi-user.target
