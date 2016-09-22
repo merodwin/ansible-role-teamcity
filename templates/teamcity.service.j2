@@ -5,6 +5,7 @@ After=syslog.target network.target
 
 [Service]
 Type=forking
+Environment=TEAMCITY_DATA_PATH=/opt/TeamCity/data
 ExecStart={{teamcity_install_folder}}/latest/bin/runAll.sh start
 ExecStop={{teamcity_install_folder}}/latest/bin/runAll.sh stop
 User={{teamcity_user}}
